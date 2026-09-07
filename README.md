@@ -49,13 +49,16 @@
 
 Snowsight のワークシートで上から順に実行してください。
 
-| # | ファイル | 内容 | 目安 |
-|---|---|---|---|
-| 0 | `git_setup.sql` | GitHubリポジトリ連携 | 5分 |
-| 1 | `setup.sql` | 環境構築・データ投入 | 5分 |
-| 2 | `src/01_ai_functions.ipynb` | FILE型で画像確認 → AI関数で分析・不正検知 | 40分 |
-| 3 | `src/02_cortex_search.sql` | 約款RAG構築 | 15分 |
-| 4 | `src/03_cortex_agent.sql` | Semantic View / Agent構築と対話 | 25分 |
+| # | ファイル | 内容 | 実行時間 | 解説込みの目安 |
+|---|---|---|---|---|
+| 0 | `git_setup.sql` | GitHubリポジトリ連携 | 21秒 | 5分 |
+| 1 | `setup.sql` | 環境構築・データ投入 | 46秒 | 10分 |
+| 2 | `src/01_ai_functions.ipynb` | FILE型で画像確認 → AI関数で分析・不正検知 | 63秒 | 40分 |
+| 3 | `src/02_cortex_search.sql` | 約款RAG構築 | 46秒 | 15分 |
+| 4 | `src/03_cortex_agent.sql` | Semantic View / Agent構築 | 15秒 | 25分 |
+
+実行時間は SMALL ウェアハウスでの実測値です（ゼロ状態から通しで約3分半）。
+残りは解説と結果の読み解きに充てられます。
 
 `src/01_ai_functions.ipynb` は Snowsight の
 **Projects » Notebooks » Create » Notebook from repository** で
