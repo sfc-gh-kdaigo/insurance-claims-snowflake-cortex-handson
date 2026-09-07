@@ -7,12 +7,12 @@
 -- 前提: git_setup.sql / setup.sql / src/01_ai_functions.ipynb を実行済み
 --
 -- やること:
---   自動車保険の約款PDF（193ページ）を検索可能にし、
+--   自動車保険の約款PDFを検索可能にし、
 --   アジャスターが「この費用は約款上支払対象か」を即座に確認できるようにする。
 --
 --   約款PDF → AI_PARSE_DOCUMENT → チャンク分割 → Cortex Search Service
 --
--- 所要時間の目安: パースに4〜5分（193ページ）＋サービス構築に2〜3分
+-- 所要時間の目安: 全体3〜5分程度
 --
 -- =========================================================
 
@@ -28,7 +28,7 @@ USE SCHEMA STAGING;
 -- テキストが得られる。条文の階層が残るため、後段のチャンク分割で
 -- 文脈が切れにくくなる。
 --
--- 注意: 193ページのため4〜5分かかります。
+-- 注意: 約10ページの約款で20秒程度かかります。
 CREATE OR REPLACE TABLE YAKKAN_PARSED AS
 SELECT
     'auto_insurance_yakkan.pdf' AS FILE_NAME,
@@ -37,7 +37,7 @@ SELECT
         {'mode': 'LAYOUT'}
     ) AS PARSED;
 
--- 抽出できた文字数を確認（36万文字前後）
+-- 抽出できた文字数を確認
 SELECT
     FILE_NAME,
     LENGTH(PARSED:content::STRING) AS TOTAL_CHARS
@@ -49,8 +49,8 @@ FROM YAKKAN_PARSED;
 -- SPLIT_TEXT_RECURSIVE_CHARACTER は段落→行→単語の順に
 -- 区切りを探すため、文の途中でぶつ切りになりにくい。
 --
---   chunk_size = 1500 : 条文1つ分がおおよそ収まる長さ
---   overlap    = 300  : 条文の境目に跨る記述を取りこぼさないための重複
+--   chunk_size = 800 : 条文1つ分がおおよそ収まる長さ
+--   overlap    = 150 : 条文の境目に跨る記述を取りこぼさないための重複
 CREATE OR REPLACE TABLE YAKKAN_CHUNKS AS
 WITH chunked AS (
     SELECT
@@ -61,25 +61,27 @@ WITH chunked AS (
          LATERAL FLATTEN(input => SNOWFLAKE.CORTEX.SPLIT_TEXT_RECURSIVE_CHARACTER(
              p.PARSED:content::STRING,
              'markdown',
-             1500,
-             300
+             800,
+             150
          )) c
 )
 SELECT
     FILE_NAME,
     CHUNK_NO,
     CHUNK_TEXT,
-    -- チャンク内の最初のMarkdown見出しをセクション名として拾う。
+    -- チャンクの見出しをセクション名として拾う。
     -- 検索結果に「どの条文か」を添えて返せるようにするための属性。
+    -- チャンクが章の切れ目から始まると先頭見出しが「第N章」になってしまうため、
+    -- 条文（第N条）を優先して探し、無い場合に章見出しへフォールバックする。
     COALESCE(
+        NULLIF(TRIM(REGEXP_SUBSTR(CHUNK_TEXT, '第[0-9０-９]+条（[^）]*）', 1, 1)), ''),
         NULLIF(TRIM(REGEXP_SUBSTR(CHUNK_TEXT, '^#{1,4}[ \t]*(.+)$', 1, 1, 'm', 1)), ''),
-        NULLIF(TRIM(REGEXP_SUBSTR(CHUNK_TEXT, '第[0-9０-９]+条[^\n]{0,40}', 1, 1)), ''),
         '（見出しなし）'
     ) AS SECTION_TITLE,
     LENGTH(CHUNK_TEXT) AS CHUNK_LENGTH
 FROM chunked
 -- 目次断片や空行だけのチャンクは検索ノイズになるため除外する
-WHERE LENGTH(TRIM(CHUNK_TEXT)) >= 200;
+WHERE LENGTH(TRIM(CHUNK_TEXT)) >= 100;
 
 -- チャンク数と長さの分布を確認
 SELECT
