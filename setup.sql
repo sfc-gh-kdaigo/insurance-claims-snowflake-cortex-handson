@@ -120,6 +120,7 @@ INSERT INTO PARTS VALUES
     (305, 3, 'NS-63100-6XR0A', '左フロントフェンダ',          '外装', 'フェンダ',     'フロント', '鋼板',    29700, '単品', TRUE),
     (306, 3, 'NS-85022-6XR0A', 'リヤバンパフェイシア',        '外装', 'バンパー',     'リヤ',     'PP樹脂',  44000, '単品', TRUE),
     (307, 3, 'NS-26550-6HH0A', '右リヤコンビランプ',          '電装', 'ランプ',       'リヤ',     'ASSY',    34100, '単品', FALSE),
+    (308, 3, 'NS-63101-6XR0A', '右フロントフェンダ',          '外装', 'フェンダ',     'フロント', '鋼板',    29700, '単品', TRUE),
     -- N-BOX JF5
     (401, 4, 'HN-71101-TDE0-ZZ', 'フロントバンパフェイス',    '外装', 'バンパー',     'フロント', 'PP樹脂',  39600, '単品', TRUE),
     (402, 4, 'HN-67550-TDE0-000', '右スライドドアパネル ASSY', '外装', 'ドア',        'サイド',   '鋼板',    85000, 'ASSY', TRUE),
@@ -188,6 +189,9 @@ INSERT INTO LABOR_INDEX VALUES
     (1210, 305, '塗装', 2.1, 'メタリック', NULL),
     (1211, 306, '取替', 0.6, NULL,         NULL),
     (1212, 307, '取替', 0.3, NULL,         NULL),
+    (1213, 308, '取替', 1.3, NULL,         NULL),
+    (1214, 308, '板金', 3.8, NULL,         '中程度の凹み'),
+    (1215, 308, '塗装', 2.1, 'メタリック', NULL),
     -- N-BOX
     (1301, 401, '取替', 0.5, NULL,         NULL),
     (1302, 401, '塗装', 2.0, 'ソリッド',   NULL),
@@ -296,8 +300,8 @@ INSERT INTO CLM_CLAIMS VALUES
 
     ('CLM-2024-0003', 'SI-C5518902', '渡辺 誠',   3, '川口300か9012', '2024-11-18',
      '追突（加害）', '埼玉県川口市本町4丁目',
-     '前方車両に追突。フロントバンパーとフロントフェンダー左側が損傷。',
-     'SHP-002', '田中自動車鈑金', '高橋 次郎', 'AI分析済', '2024-11-19 14:20:00', 381898),
+     '前方車両に追突。フロントバンパーとフロントフェンダー右側が損傷。',
+     'SHP-002', '田中自動車鈑金', '高橋 次郎', 'AI分析済', '2024-11-19 14:20:00', 454696),
 
     ('CLM-2024-0004', 'SI-D7729183', '伊藤 香織', 4, '所沢580き3456', '2024-11-22',
      '追突（被害）', '埼玉県所沢市東町2丁目',
@@ -428,18 +432,18 @@ GROUP BY ALL;
 -- Step 8: 構築結果の確認
 -- =========================================================
 -- 期待値と一致していれば成功。
---   VEHICLES=5 / PARTS=33 / LABOR_INDEX=54 / LABOR_RATES=12
+--   VEHICLES=5 / PARTS=34 / LABOR_INDEX=57 / LABOR_RATES=12
 --   CLM_CLAIMS=5 / CLM_IMAGES=10 / CLM_REPAIR_SHOPS=5 / CLM_ESTIMATES_RAW=3
---   PARTS_MASTER=33
+--   PARTS_MASTER=34
 SELECT 'REPAIR_REFERENCE.VEHICLES'  AS OBJECT_NAME, COUNT(*) AS ROW_CNT, 5  AS EXPECTED FROM REPAIR_REFERENCE.VEHICLES
-UNION ALL SELECT 'REPAIR_REFERENCE.PARTS',        COUNT(*), 33 FROM REPAIR_REFERENCE.PARTS
-UNION ALL SELECT 'REPAIR_REFERENCE.LABOR_INDEX',  COUNT(*), 54 FROM REPAIR_REFERENCE.LABOR_INDEX
+UNION ALL SELECT 'REPAIR_REFERENCE.PARTS',        COUNT(*), 34 FROM REPAIR_REFERENCE.PARTS
+UNION ALL SELECT 'REPAIR_REFERENCE.LABOR_INDEX',  COUNT(*), 57 FROM REPAIR_REFERENCE.LABOR_INDEX
 UNION ALL SELECT 'REPAIR_REFERENCE.LABOR_RATES',  COUNT(*), 12 FROM REPAIR_REFERENCE.LABOR_RATES
 UNION ALL SELECT 'RAW.CLM_CLAIMS',                COUNT(*), 5  FROM RAW.CLM_CLAIMS
 UNION ALL SELECT 'RAW.CLM_IMAGES',                COUNT(*), 10 FROM RAW.CLM_IMAGES
 UNION ALL SELECT 'RAW.CLM_REPAIR_SHOPS',          COUNT(*), 5  FROM RAW.CLM_REPAIR_SHOPS
 UNION ALL SELECT 'RAW.CLM_ESTIMATES_RAW',         COUNT(*), 3  FROM RAW.CLM_ESTIMATES_RAW
-UNION ALL SELECT 'STAGING.PARTS_MASTER',          COUNT(*), 33 FROM STAGING.PARTS_MASTER
+UNION ALL SELECT 'STAGING.PARTS_MASTER',          COUNT(*), 34 FROM STAGING.PARTS_MASTER
 ORDER BY OBJECT_NAME;
 
 -- ステージ上のファイル確認（画像10件 + PDF4件が見えていれば成功）
