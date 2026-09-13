@@ -25,7 +25,7 @@ USE DATABASE INSURANCE_CLAIMS_DB;
 -- =========================================================
 -- Step 1: クロスリージョン推論の有効化
 -- =========================================================
--- Vision 対応モデルの claude-sonnet-4-6 は東京リージョン（AWS_JP）で利用できる。
+-- Vision 対応モデルの claude-sonnet-4-5 は東京リージョン（AWS_JP）で利用できる。
 ALTER ACCOUNT SET CORTEX_ENABLED_CROSS_REGION = 'ANY_REGION';
 
 -- =========================================================

@@ -350,7 +350,16 @@ SHOW AGENTS LIKE 'CLAIMS_ADJUSTER_AGENT';
 DESCRIBE AGENT CLAIMS_ADJUSTER_AGENT;
 
 -- =========================================================
--- Step 6: Cowork で対話する
+-- Step 6: Cowork の有効化
+-- =========================================================
+-- Cowork を初めて使うアカウントでは、この2文を実行して有効化する。
+-- 実行しないと Snowsight の Cowork にAgentが表示されない。
+CREATE SNOWFLAKE INTELLIGENCE IF NOT EXISTS SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT;
+
+GRANT MODIFY ON SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT TO ROLE accountadmin;
+
+-- =========================================================
+-- Step 7: Cowork で対話する
 -- =========================================================
 -- Snowsight の Cowork（旧 Snowflake Intelligence）を開き、
 -- 「協定業務アシスタント」を選んで、以下を順に試してください。
@@ -370,15 +379,6 @@ DESCRIBE AGENT CLAIMS_ADJUSTER_AGENT;
 --   5. CLM-2024-0005 は要精査ですが、この案件で代車費用を支払えますか。
 --      → claim_lookup と policy_search の両方を使う。Agentのオーケストレーションの山場。
 --
--- =========================================================
--- Step 7: Cowork の有効化
--- =========================================================
--- Cowork を初めて使うアカウントでは、この2文を実行して有効化する。
--- 実行しないと Snowsight の Cowork にAgentが表示されない。
-CREATE SNOWFLAKE INTELLIGENCE IF NOT EXISTS SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT;
-
-GRANT MODIFY ON SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT TO ROLE accountadmin;
-
 -- =========================================================
 -- 権限付与（他ロールにも使わせる場合）
 -- =========================================================
