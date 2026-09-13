@@ -25,9 +25,7 @@ USE DATABASE INSURANCE_CLAIMS_DB;
 -- =========================================================
 -- Step 1: クロスリージョン推論の有効化
 -- =========================================================
--- 東京リージョンでは Vision 対応モデル（claude / pixtral）が未提供の場合があり、
--- これを設定しないと 01_ai_functions.ipynb の AI_COMPLETE が
--- 「unknown model」で失敗する。ハンズオン最大のつまずきポイント。
+-- Vision 対応モデルの claude-sonnet-4-6 は東京リージョン（AWS_JP）で利用できる。
 ALTER ACCOUNT SET CORTEX_ENABLED_CROSS_REGION = 'ANY_REGION';
 
 -- =========================================================
