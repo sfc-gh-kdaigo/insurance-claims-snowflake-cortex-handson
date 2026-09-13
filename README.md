@@ -51,13 +51,14 @@ Snowsight のワークシートで上から順に実行してください。
 
 | # | ファイル | 内容 | 実行時間 | 解説込みの目安 |
 |---|---|---|---|---|
-| 0 | `git_setup.sql` | GitHubリポジトリ連携 | 21秒 | 5分 |
-| 1 | `setup.sql` | 環境構築・データ投入 | 46秒 | 10分 |
-| 2 | `src/01_ai_functions.ipynb` | FILE型で画像確認 → AI関数で分析・不正検知 | 63秒 | 40分 |
-| 3 | `src/02_cortex_search.sql` | 約款RAG構築 | 46秒 | 15分 |
-| 4 | `src/03_cortex_agent.sql` | Semantic View / Agent構築 | 15秒 | 25分 |
+| 0 | `git_setup.sql` | GitHubリポジトリ連携 | 20秒 | 5分 |
+| 1 | `setup.sql` | 環境構築・データ投入 | 40秒 | 10分 |
+| 2 | `src/01_ai_functions.ipynb` | 事故車画像の確認 → AI関数で分析・不正検知 | 57秒 | 40分 |
+| 3 | `src/02_cortex_search.sql` | 約款RAG構築 | 43秒 | 15分 |
+| 4 | `src/03_cortex_agent.sql` | Semantic View / Agent構築 | 11秒 | 25分 |
 
-実行時間は SMALL ウェアハウスでの実測値です（ゼロ状態から通しで約3分半）。
+実行時間は SMALL ウェアハウスでの実測値です（ゼロ状態から通しで約3分）。
+`src/01_ai_functions.ipynb` の実測値はSQLセルのみの合計で、画像表示のPythonセルは含みません。
 残りは解説と結果の読み解きに充てられます。
 
 `src/01_ai_functions.ipynb` は Snowsight の
@@ -108,7 +109,7 @@ INSURANCE_CLAIMS_DB
 
 | 機能 | どこで使うか |
 |---|---|
-| **FILE型 / `TO_FILE()`** | ステージ上の画像をノートブックのセル内に直接表示し、同じオブジェクトをそのままAIに渡す |
+| **FILE型 / `TO_FILE()`** | ステージ上のファイルをSQLの値として扱い、そのままAI関数に渡す |
 | `AI_COMPLETE`（Vision） | 事故車画像から損傷部位・程度・修理方法を判定 |
 | `response_format` | 出力をOBJECT型に固定し、自由文のパースを不要にする |
 | `AI_EXTRACT`（テーブル抽出） | 見積書PDFの明細表を1行1明細に構造化 |
@@ -172,12 +173,17 @@ FETCH していないとリポジトリステージが空のままです。
 `ALTER STAGE <ステージ名> REFRESH;` を実行してください。
 Directory Table は自動更新されません。
 
-### `TO_FILE()` で画像が表示されない
-- ステージが `ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')` で作られているか確認してください。
-  クライアントサイド暗号化のステージでは FILE 型が読めません。
-- 結果グリッドではなくワークシートで実行していないか確認してください。
-  サムネイル表示はノートブックおよびワークシートの結果グリッドで機能します。
-- `BUILD_SCOPED_FILE_URL()` はURL文字列を返すだけで画像は表示されません。`TO_FILE()` を使ってください。
+### セルに画像が表示されない
+- **`TO_FILE()` の戻り値はサムネイルとして描画されません。**
+  結果グリッドでは `{"CONTENT_TYPE": "image/jpeg", "ETAG": ...}` のような
+  構造体として表示されます。画像を実際に見るには Python セルで
+  `session.file.get()` でダウンロードし、`IPython.display.Image` で表示します
+  （`src/01_ai_functions.ipynb` の Step 0 がこの実装です）。
+- `session.file.get()` が失敗する場合は、ステージが
+  `ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')` で作られているか確認してください。
+  クライアントサイド暗号化のステージでは読めません。
+- なお `AI_COMPLETE` の Vision 入力には `TO_FILE()` をそのまま渡せます。
+  表示と入力で手段が分かれる点にご注意ください。
 
 ### `AI_COMPLETE` が "Model is unavailable" で失敗する
 Vision対応モデルが自リージョンで提供されていない可能性があります。
