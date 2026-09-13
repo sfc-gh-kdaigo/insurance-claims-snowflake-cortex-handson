@@ -251,11 +251,15 @@ SELECT * FROM SEMANTIC_VIEW(
 -- Step 4: Cortex Agent の作成
 -- =========================================================
 -- 3つのツールを持たせる。
---   案件照会 : SV_CLAIMS へのText-to-SQL
---   不正分析 : SV_FRAUD へのText-to-SQL
---   約款検索 : YAKKAN_SEARCH_SVC へのRAG
+--   claim_lookup   : SV_CLAIMS へのText-to-SQL（案件照会）
+--   fraud_analysis : SV_FRAUD へのText-to-SQL（不正分析）
+--   policy_search  : YAKKAN_SEARCH_SVC へのRAG（約款検索）
 --
--- 注意: CREATE AGENT は FROM SPECIFICATION を使う。
+-- 注意1: CREATE AGENT は FROM SPECIFICATION を使う。
+-- 注意2: ツール名（tools[].tool_spec.name と tool_resources のキー）は
+--        ASCII文字で定義する。日本語を使うと内部で '_' に置換され、
+--        Agentオブジェクト自体は作成できるが Cowork で実行時にエラーになる。
+--        description や instructions は日本語のままで問題ない。
 CREATE OR REPLACE AGENT CLAIMS_ADJUSTER_AGENT
 WITH PROFILE = '{"display_name": "協定業務アシスタント"}'
     COMMENT = '損害サービスの協定業務を支援するAIエージェント'
@@ -281,11 +285,11 @@ instructions:
     質問の性質に応じてツールを選択してください。
 
     - 案件の件数・金額・ステータス・車種・工場・リスクスコアに関する質問は
-      「案件照会」を使ってください。
+      claim_lookup を使ってください。
     - どの明細がなぜアラートになったか、単価や指数の乖離に関する質問は
-      「不正分析」を使ってください。
+      fraud_analysis を使ってください。
     - 支払対象か否か、免責、支払限度額、代車、特約などの
-      契約条件に関する質問は「約款検索」を使ってください。
+      契約条件に関する質問は policy_search を使ってください。
     - 「この案件で代車費用は支払対象か」のように案件情報と約款の
       両方が必要な質問では、両方のツールを使って回答を組み立ててください。
 
@@ -298,37 +302,37 @@ instructions:
 
 tools:
   - tool_spec:
-      name: 案件照会
+      name: claim_lookup
       type: cortex_analyst_text_to_sql
       description: |
         保険金請求案件の照会に使います。案件番号・被保険者・車種・事故類型・
         修理工場・見積額・リスクスコア・リスク判定で絞り込みや集計ができます。
   - tool_spec:
-      name: 不正分析
+      name: fraud_analysis
       type: cortex_analyst_text_to_sql
       description: |
         見積明細レベルの不正検知分析に使います。部品番号・作業区分ごとの
         見積単価と定価の比較、見積指数と標準指数の比較、
         チェック結果（単価超過・指数超過・マスタ未登録）の内訳がわかります。
   - tool_spec:
-      name: 約款検索
+      name: policy_search
       type: cortex_search
       description: |
         自動車保険約款の検索に使います。免責事由、支払限度額、修理費の認定、
         代車費用特約、修理費用保証特約などの契約条件を条文単位で確認できます。
 
 tool_resources:
-  案件照会:
+  claim_lookup:
     semantic_view: INSURANCE_CLAIMS_DB.APP.SV_CLAIMS
     execution_environment:
       type: warehouse
       warehouse: INSURANCE_CLAIMS_WH
-  不正分析:
+  fraud_analysis:
     semantic_view: INSURANCE_CLAIMS_DB.APP.SV_FRAUD
     execution_environment:
       type: warehouse
       warehouse: INSURANCE_CLAIMS_WH
-  約款検索:
+  policy_search:
     name: INSURANCE_CLAIMS_DB.APP.YAKKAN_SEARCH_SVC
     id_column: CHUNK_NO
     title_column: SECTION_TITLE
@@ -343,25 +347,25 @@ SHOW AGENTS LIKE 'CLAIMS_ADJUSTER_AGENT';
 DESCRIBE AGENT CLAIMS_ADJUSTER_AGENT;
 
 -- =========================================================
--- Step 6: Snowflake Intelligence で対話する
+-- Step 6: Cowork で対話する
 -- =========================================================
--- Snowsight の左メニュー「AI & ML」→「Snowflake Intelligence」から
+-- Snowsight の Cowork（旧 Snowflake Intelligence）を開き、
 -- 「協定業務アシスタント」を選んで、以下を順に試してください。
 --
 --   1. リスクスコアが最も高い案件はどれですか。その理由も教えてください。
---      → 案件照会ツールが使われ、CLM-2024-0003 が返るはず
+--      → claim_lookup が使われ、CLM-2024-0003 が返るはず
 --
 --   2. CLM-2024-0004 の見積で価格乖離がある明細を教えてください。
---      → 不正分析ツールが使われ、リヤバンパフェイスの+25%が返るはず
+--      → fraud_analysis が使われ、リヤバンパフェイスの+25%が返るはず
 --
 --   3. 修理期間中の代車費用は約款上支払対象になりますか。
---      → 約款検索ツールが使われ、第18条（代車費用特約）が引用されるはず
+--      → policy_search が使われ、第18条（代車費用特約）が引用されるはず
 --
 --   4. 修理工場別のリスクスコア平均をランキングで教えてください。
---      → 案件照会ツールで工場別集計
+--      → claim_lookup で工場別集計
 --
 --   5. CLM-2024-0005 は要精査ですが、この案件で代車費用を支払えますか。
---      → 案件照会と約款検索の両方を使う。Agentのオーケストレーションの山場。
+--      → claim_lookup と policy_search の両方を使う。Agentのオーケストレーションの山場。
 --
 -- =========================================================
 -- 権限付与（他ロールにも使わせる場合）
