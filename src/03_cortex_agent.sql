@@ -222,6 +222,77 @@ CREATE OR REPLACE SEMANTIC VIEW SV_FRAUD
     COMMENT = '見積明細の不正検知分析用セマンティックビュー';
 
 -- =========================================================
+-- Step 2.5: 動画分析結果の Semantic View
+-- =========================================================
+-- ドラレコ映像分析と損傷点検動画分析の結果を Agent から照会できるようにする。
+CREATE OR REPLACE SEMANTIC VIEW SV_VIDEO_ANALYSIS
+    TABLES (
+        dashcam AS ANALYTICS.DT_DASHCAM_ANALYSIS
+            WITH SYNONYMS = ('ドラレコ分析', 'ドライブレコーダー分析', '事故映像分析')
+            COMMENT = 'ドラレコ映像のAI分析結果',
+        video_damage AS ANALYTICS.DT_VIDEO_DAMAGE_ASSESSMENT
+            WITH SYNONYMS = ('動画損傷分析', '点検動画分析', '動画からの損傷判定')
+            COMMENT = '損傷点検動画のAI分析結果',
+        dashcam_check AS ANALYTICS.DT_DASHCAM_CONSISTENCY
+            WITH SYNONYMS = ('ドラレコ整合', '衝突箇所整合', '映像見積矛盾')
+            COMMENT = 'ドラレコ映像と見積明細の衝突箇所整合チェック',
+        claims AS RAW.CLM_CLAIMS
+            PRIMARY KEY (CLAIM_ID)
+            WITH SYNONYMS = ('案件')
+            COMMENT = '保険金請求案件'
+    )
+    RELATIONSHIPS (
+        dashcam_to_claims       AS dashcam (CLAIM_ID) REFERENCES claims (CLAIM_ID),
+        video_damage_to_claims  AS video_damage (CLAIM_ID) REFERENCES claims (CLAIM_ID),
+        dashcam_check_to_claims AS dashcam_check (CLAIM_ID) REFERENCES claims (CLAIM_ID)
+    )
+    DIMENSIONS (
+        dashcam.CLAIM_ID AS DASHCAM_CLAIM_ID
+            WITH SYNONYMS = ('ドラレコ案件番号')
+            COMMENT = 'ドラレコ分析の対象案件番号',
+        dashcam.FILE_NAME AS DASHCAM_FILE
+            WITH SYNONYMS = ('ドラレコファイル名')
+            COMMENT = 'ドラレコ映像のファイル名',
+        dashcam.ANALYSIS:accident_type::STRING AS ACCIDENT_TYPE_AI
+            WITH SYNONYMS = ('AI判定事故種類', '映像から判定した事故種類')
+            COMMENT = 'ドラレコ映像からAIが判定した事故の種類',
+        dashcam.ANALYSIS:impact_location::STRING AS IMPACT_LOCATION_AI
+            WITH SYNONYMS = ('AI判定衝突箇所', '映像から判定した衝突箇所')
+            COMMENT = 'ドラレコ映像からAIが判定した衝突箇所',
+        dashcam.ANALYSIS:estimated_speed::STRING AS ESTIMATED_SPEED_AI
+            WITH SYNONYMS = ('AI判定速度帯')
+            COMMENT = 'ドラレコ映像からAIが推定した速度帯',
+        dashcam.ANALYSIS:weather_road::STRING AS WEATHER_ROAD_AI
+            WITH SYNONYMS = ('AI判定天候路面', '天候', '路面状況')
+            COMMENT = 'ドラレコ映像からAIが判定した天候・路面状況',
+        dashcam.ANALYSIS:fault_indication::STRING AS FAULT_INDICATION_AI
+            WITH SYNONYMS = ('AI判定過失示唆', '過失割合')
+            COMMENT = 'ドラレコ映像からAIが示唆した過失割合',
+        video_damage.CLAIM_ID AS VIDEO_DAMAGE_CLAIM_ID
+            WITH SYNONYMS = ('点検動画案件番号')
+            COMMENT = '損傷点検動画の対象案件番号',
+        video_damage.ANALYSIS:overall_severity::STRING AS VIDEO_OVERALL_SEVERITY
+            WITH SYNONYMS = ('動画判定の全体損傷度')
+            COMMENT = '損傷点検動画からAIが判定した全体的な損傷の程度',
+        video_damage.ANALYSIS:summary::STRING AS VIDEO_DAMAGE_SUMMARY
+            WITH SYNONYMS = ('動画損傷要約', '動画判定の要約')
+            COMMENT = '損傷点検動画からの損傷状況要約',
+        dashcam_check.CLAIM_ID AS CHECK_CLAIM_ID
+            WITH SYNONYMS = ('整合チェック案件番号')
+            COMMENT = '整合チェックの対象案件番号',
+        dashcam_check."見積明細" AS CHECK_WORK_NAME
+            WITH SYNONYMS = ('チェック対象明細', '見積パーツ名')
+            COMMENT = '整合チェック対象の見積明細名',
+        dashcam_check.dashcam_consistency AS DASHCAM_CONSISTENCY
+            WITH SYNONYMS = ('ドラレコ整合結果', '衝突箇所チェック結果')
+            COMMENT = 'CONSISTENT / LOCATION_MISMATCH / NO_DASHCAM',
+        claims.INSURED_NAME AS INSURED_NAME
+            WITH SYNONYMS = ('被保険者', '契約者名')
+            COMMENT = '被保険者の氏名'
+    )
+    COMMENT = '動画分析結果（ドラレコ・損傷点検・整合チェック）のセマンティックビュー';
+
+-- =========================================================
 -- Step 3: Semantic View の動作確認
 -- =========================================================
 -- Agentに渡す前に、素のSQLで引けることを確認しておく。
@@ -293,6 +364,8 @@ instructions:
       fraud_analysis を使ってください。
     - 支払対象か否か、免責、支払限度額、代車、特約などの
       契約条件に関する質問は policy_search を使ってください。
+    - ドラレコ映像の分析結果、動画から検出された損傷、ドラレコと見積の矛盾に
+      関する質問は video_analysis を使ってください。
     - 「この案件で代車費用は支払対象か」のように案件情報と約款の
       両方が必要な質問では、両方のツールを使って回答を組み立ててください。
 
@@ -302,6 +375,8 @@ instructions:
     - question: 修理期間中の代車費用は約款上支払対象になりますか。
     - question: 修理工場別のリスクスコア平均をランキングで教えてください。
     - question: 要精査と判定された案件の見積総額はいくらですか。
+    - question: CLM-2024-0003 のドラレコ映像の分析結果を教えてください。
+    - question: ドラレコと見積で衝突箇所が矛盾している明細はありますか。
 
 tools:
   - tool_spec:
@@ -323,6 +398,13 @@ tools:
       description: |
         自動車保険約款の検索に使います。免責事由、支払限度額、修理費の認定、
         代車費用特約、修理費用保証特約などの契約条件を条文単位で確認できます。
+  - tool_spec:
+      name: video_analysis
+      type: cortex_analyst_text_to_sql
+      description: |
+        動画分析結果の照会に使います。ドラレコ映像からAIが判定した事故の種類・
+        衝突箇所・速度帯・天候・過失割合、損傷点検動画から検出した損傷パーツ、
+        ドラレコ映像と見積明細の衝突箇所の矛盾チェック結果がわかります。
 
 tool_resources:
   claim_lookup:
@@ -340,6 +422,11 @@ tool_resources:
     id_column: CHUNK_NO
     title_column: SECTION_TITLE
     max_results: 5
+  video_analysis:
+    semantic_view: INSURANCE_CLAIMS_DB.APP.SV_VIDEO_ANALYSIS
+    execution_environment:
+      type: warehouse
+      warehouse: INSURANCE_CLAIMS_WH
 $$;
 
 -- =========================================================
@@ -378,6 +465,12 @@ GRANT MODIFY ON SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT TO 
 --
 --   5. CLM-2024-0005 は要精査ですが、この案件で代車費用を支払えますか。
 --      → claim_lookup と policy_search の両方を使う。Agentのオーケストレーションの山場。
+--
+--   6. CLM-2024-0003 のドラレコ映像の分析結果を教えてください。
+--      → video_analysis が使われ、事故種類・衝突箇所・速度帯が返るはず
+--
+--   7. ドラレコと見積で衝突箇所が矛盾している明細はありますか。
+--      → video_analysis が使われ、LOCATION_MISMATCH の明細が返るはず
 --
 -- =========================================================
 -- 権限付与（他ロールにも使わせる場合）

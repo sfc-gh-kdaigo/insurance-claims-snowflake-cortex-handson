@@ -2,8 +2,9 @@
 
 自動車事故の**損害査定と修理見積の不正検知**を題材にした Snowflake Cortex AI ハンズオンです。
 
-事故車の画像、修理工場から届く見積書PDF、部品定価・標準作業指数のリファレンスマスタ、
-そして保険約款という**性質の異なる4種類のデータを1つのプラットフォーム上で突き合わせ**、
+事故車の画像、**ドラレコ映像・損傷点検動画**、修理工場から届く見積書PDF、
+部品定価・標準作業指数のリファレンスマスタ、そして保険約款という
+**性質の異なる5種類のデータを1つのプラットフォーム上で突き合わせ**、
 アジャスターが見るべき案件を機械的に浮かび上がらせるまでを体験します。
 
 > データは全て架空のデモ用データです。実在の人物・企業・団体とは一切関係ありません。
@@ -53,7 +54,7 @@ Snowsight のワークシートで上から順に実行してください。
 |---|---|---|---|---|
 | 0 | `git_setup.sql` | GitHubリポジトリ連携 | 20秒 | 5分 |
 | 1 | `setup.sql` | 環境構築・データ投入 | 40秒 | 10分 |
-| 2 | `src/01_ai_functions.ipynb` | 事故車画像の確認 → AI関数で分析・不正検知 | 57秒 | 40分 |
+| 2 | `src/01_ai_functions.ipynb` | 事故車画像の確認 → AI関数で分析・不正検知 → 動画分析 | 57秒+動画分析 | 55分 |
 | 3 | `src/02_cortex_search.sql` | 約款RAG構築 | 43秒 | 15分 |
 | 4 | `src/03_cortex_agent.sql` | Semantic View / Agent構築 | 11秒 | 25分 |
 
@@ -82,7 +83,9 @@ INSURANCE_CLAIMS_DB
 │   ├── CLM_IMAGES         事故画像メタ    10件
 │   ├── CLM_REPAIR_SHOPS   契約修理工場     5件
 │   ├── CLM_ESTIMATES_RAW  見積書PDFメタ    3件
+│   ├── CLM_VIDEOS         動画メタ        6件
 │   ├── CLAIM_IMAGES_STAGE 事故車・参考画像（ステージ）
+│   ├── VIDEO_STAGE        ドラレコ・点検動画（ステージ）
 │   └── DOCS_STAGE         約款・見積書PDF（ステージ）
 ├── STAGING
 │   ├── PARTS_MASTER       部品＋指数の統合（Dynamic Table）
@@ -94,13 +97,18 @@ INSURANCE_CLAIMS_DB
 │   ├── DT_DAMAGE_ASSESSMENT 損傷部位（1行1部位）
 │   ├── DT_PRICE_ANOMALY     マスタ突合結果（Dynamic Table）
 │   ├── DT_IMAGE_CONSISTENCY 画像整合チェック
-│   ├── DT_FRAUD_RISK_SCORE  案件別リスクスコア（Dynamic Table）
-│   └── DT_SHOP_PERFORMANCE  工場別実績（Dynamic Table）
+│   ├── DT_DASHCAM_ANALYSIS    ドラレコ映像AI分析結果
+│   ├── DT_VIDEO_DAMAGE_ASSESSMENT 損傷点検動画AI分析結果
+│   ├── DT_DASHCAM_CONSISTENCY ドラレコ・見積衝突箇所整合（DT）
+│   ├── VIDEO_EMBEDDINGS       動画セマンティック検索インデックス
+│   ├── DT_FRAUD_RISK_SCORE    案件別リスクスコア（Dynamic Table）
+│   └── DT_SHOP_PERFORMANCE    工場別実績（Dynamic Table）
 └── APP
     ├── YAKKAN_SEARCH_SVC     約款検索（Cortex Search）
     ├── SV_CLAIMS             案件照会（Semantic View）
     ├── SV_FRAUD              不正分析（Semantic View）
-    └── CLAIMS_ADJUSTER_AGENT 協定業務アシスタント（Cortex Agent）
+    ├── SV_VIDEO_ANALYSIS     動画分析結果（Semantic View）
+    └── CLAIMS_ADJUSTER_AGENT 協定業務アシスタント（Cortex Agent / 4ツール）
 ```
 
 ---
@@ -111,6 +119,8 @@ INSURANCE_CLAIMS_DB
 |---|---|
 | **FILE型 / `TO_FILE()`** | ステージ上のファイルをSQLの値として扱い、そのままAI関数に渡す |
 | `AI_COMPLETE`（Vision） | 事故車画像から損傷部位・程度・修理方法を判定 |
+| `AI_COMPLETE`（動画入力） | ドラレコ映像から事故状況を構造化抽出、損傷点検動画から詳細損傷を分析 |
+| `AI_MULTI_EMBED` | 動画をセグメント×モダリティでベクトル化し、類似事故をセマンティック検索 |
 | `response_format` | 出力をOBJECT型に固定し、自由文のパースを不要にする |
 | `AI_EXTRACT`（テーブル抽出） | 見積書PDFの明細表を1行1明細に構造化 |
 | `AI_PARSE_DOCUMENT` | 約款PDFをレイアウト保持でテキスト化 |
@@ -160,6 +170,10 @@ INSURANCE_CLAIMS_DB
    → `claim_lookup` ツールで工場別集計。
 5. **CLM-2024-0005 は要精査ですが、この案件で代車費用を支払えますか。**
    → `claim_lookup` と `policy_search` の両方を使います。オーケストレーションの山場です。
+6. **CLM-2024-0003 のドラレコ映像の分析結果を教えてください。**
+   → `video_analysis` ツール。事故種類・衝突箇所・速度帯・天候が返ります。
+7. **ドラレコと見積で衝突箇所が矛盾している明細はありますか。**
+   → `video_analysis` ツール。CLM-2024-0003 のリヤバンパー（正面衝突なのに後部パーツ請求）が返ります。
 
 ---
 

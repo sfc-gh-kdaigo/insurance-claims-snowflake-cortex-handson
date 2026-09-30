@@ -432,7 +432,7 @@ GROUP BY ALL;
 -- 期待値と一致していれば成功。
 --   VEHICLES=5 / PARTS=34 / LABOR_INDEX=57 / LABOR_RATES=12
 --   CLM_CLAIMS=5 / CLM_IMAGES=10 / CLM_REPAIR_SHOPS=5 / CLM_ESTIMATES_RAW=3
---   PARTS_MASTER=34
+--   CLM_VIDEOS=6 / PARTS_MASTER=34
 SELECT 'REPAIR_REFERENCE.VEHICLES'  AS OBJECT_NAME, COUNT(*) AS ROW_CNT, 5  AS EXPECTED FROM REPAIR_REFERENCE.VEHICLES
 UNION ALL SELECT 'REPAIR_REFERENCE.PARTS',        COUNT(*), 34 FROM REPAIR_REFERENCE.PARTS
 UNION ALL SELECT 'REPAIR_REFERENCE.LABOR_INDEX',  COUNT(*), 57 FROM REPAIR_REFERENCE.LABOR_INDEX
@@ -451,6 +451,51 @@ UNION ALL
 SELECT 'DOCS_STAGE', RELATIVE_PATH, ROUND(SIZE/1024)
 FROM DIRECTORY(@RAW.DOCS_STAGE)
 ORDER BY STAGE_NAME, RELATIVE_PATH;
+
+-- =========================================================
+-- Step 9: 動画分析用のステージとメタデータ
+-- =========================================================
+-- AI_COMPLETE (動画入力) / AI_MULTI_EMBED はサーバーサイド暗号化が必須。
+-- DIRECTORY = TRUE は DIRECTORY() テーブル関数で一括処理するときに必要。
+USE SCHEMA RAW;
+
+CREATE OR REPLACE STAGE VIDEO_STAGE
+    DIRECTORY = (ENABLE = TRUE)
+    ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')
+    COMMENT = 'ドラレコ映像・損傷点検動画';
+
+-- 動画ファイルをGitリポジトリからコピー
+COPY FILES INTO @VIDEO_STAGE/dashcam/
+    FROM @INTEGRATIONS.insurance_claims_snowflake_cortex_handson/branches/feature/video-upgrade/data/videos/dashcam/;
+
+COPY FILES INTO @VIDEO_STAGE/inspection/
+    FROM @INTEGRATIONS.insurance_claims_snowflake_cortex_handson/branches/feature/video-upgrade/data/videos/inspection/;
+
+ALTER STAGE VIDEO_STAGE REFRESH;
+
+-- 動画メタデータテーブル
+CREATE OR REPLACE TABLE CLM_VIDEOS (
+    VIDEO_ID    INT PRIMARY KEY,
+    CLAIM_ID    VARCHAR(20)  COMMENT 'FK→CLM_CLAIMS',
+    VIDEO_TYPE  VARCHAR(20)  COMMENT '動画種別（dashcam/inspection）',
+    FILE_NAME   VARCHAR(200) COMMENT 'ステージ上の相対パス',
+    UPLOADED_AT TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+) COMMENT = '事故動画メタデータ（ドラレコ映像・損傷点検動画）';
+
+INSERT INTO CLM_VIDEOS (VIDEO_ID, CLAIM_ID, VIDEO_TYPE, FILE_NAME) VALUES
+    (1, 'CLM-2024-0001', 'dashcam',    'dashcam/CLM-2024-0001_dashcam.mp4'),
+    (2, 'CLM-2024-0003', 'dashcam',    'dashcam/CLM-2024-0003_dashcam.mp4'),
+    (3, 'CLM-2024-0005', 'dashcam',    'dashcam/CLM-2024-0005_dashcam.mp4'),
+    (4, 'CLM-2024-0001', 'inspection', 'inspection/CLM-2024-0001_inspection.mp4'),
+    (5, 'CLM-2024-0003', 'inspection', 'inspection/CLM-2024-0003_inspection.mp4'),
+    (6, 'CLM-2024-0004', 'inspection', 'inspection/CLM-2024-0004_inspection.mp4');
+
+-- 確認
+SELECT 'RAW.CLM_VIDEOS' AS OBJECT_NAME, COUNT(*) AS ROW_CNT, 6 AS EXPECTED FROM RAW.CLM_VIDEOS;
+
+SELECT 'VIDEO_STAGE' AS STAGE_NAME, RELATIVE_PATH, ROUND(SIZE/1024) AS SIZE_KB
+FROM DIRECTORY(@RAW.VIDEO_STAGE)
+ORDER BY RELATIVE_PATH;
 
 -- =========================================================
 -- 次は src/01_ai_functions.ipynb を実行してください
