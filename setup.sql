@@ -483,12 +483,12 @@ CREATE OR REPLACE TABLE CLM_VIDEOS (
 ) COMMENT = '事故動画メタデータ（ドラレコ映像・損傷点検動画）';
 
 INSERT INTO CLM_VIDEOS (VIDEO_ID, CLAIM_ID, VIDEO_TYPE, FILE_NAME) VALUES
-    (1, 'CLM-2024-0001', 'dashcam',    'dashcam/CLM-2024-0001_dashcam.mp4'),
-    (2, 'CLM-2024-0003', 'dashcam',    'dashcam/CLM-2024-0003_dashcam.mp4'),
-    (3, 'CLM-2024-0005', 'dashcam',    'dashcam/CLM-2024-0005_dashcam.mp4'),
-    (4, 'CLM-2024-0001', 'inspection', 'inspection/CLM-2024-0001_inspection.mp4'),
-    (5, 'CLM-2024-0003', 'inspection', 'inspection/CLM-2024-0003_inspection.mp4'),
-    (6, 'CLM-2024-0004', 'inspection', 'inspection/CLM-2024-0004_inspection.mp4');
+    (1, 'CLM-2024-0001', 'dashcam',    'dashcam/CLM-2024-0001.mp4'),
+    (2, 'CLM-2024-0003', 'dashcam',    'dashcam/CLM-2024-0003.mp4'),
+    (3, 'CLM-2024-0005', 'dashcam',    'dashcam/CLM-2024-0005.mp4'),
+    (4, 'CLM-2024-0001', 'inspection', 'inspection/CLM-2024-0001.mp4'),
+    (5, 'CLM-2024-0003', 'inspection', 'inspection/CLM-2024-0003.mp4'),
+    (6, 'CLM-2024-0004', 'inspection', 'inspection/CLM-2024-0004.mp4');
 
 -- 確認
 SELECT 'RAW.CLM_VIDEOS' AS OBJECT_NAME, COUNT(*) AS ROW_CNT, 6 AS EXPECTED FROM RAW.CLM_VIDEOS;
