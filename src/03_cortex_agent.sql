@@ -224,73 +224,67 @@ CREATE OR REPLACE SEMANTIC VIEW SV_FRAUD
 -- =========================================================
 -- Step 2.5: 動画分析結果の Semantic View
 -- =========================================================
--- ドラレコ映像分析と損傷点検動画分析の結果を Agent から照会できるようにする。
+-- ドラレコ映像分析と整合チェック結果を Agent から照会できるようにする。
+-- VARIANT列のパスアクセスはセマンティックビューで直接使えないため、
+-- 中間ビューでフラット化する。
+
+CREATE OR REPLACE VIEW ANALYTICS.V_DASHCAM_ANALYSIS AS
+SELECT
+    CLAIM_ID,
+    FILE_NAME,
+    ANALYSIS:accident_type::STRING AS ACCIDENT_TYPE_AI,
+    ANALYSIS:impact_location::STRING AS IMPACT_LOCATION_AI,
+    ANALYSIS:estimated_speed::STRING AS ESTIMATED_SPEED_AI,
+    ANALYSIS:weather_road::STRING AS WEATHER_ROAD_AI,
+    ANALYSIS:fault_indication::STRING AS FAULT_INDICATION_AI,
+    ANALYSIS:notes::STRING AS NOTES_AI
+FROM ANALYTICS.DT_DASHCAM_ANALYSIS;
+
+CREATE OR REPLACE VIEW ANALYTICS.V_VIDEO_DAMAGE_ASSESSMENT AS
+SELECT
+    CLAIM_ID,
+    FILE_NAME,
+    ANALYSIS:overall_severity::STRING AS OVERALL_SEVERITY,
+    ANALYSIS:summary::STRING AS DAMAGE_SUMMARY
+FROM ANALYTICS.DT_VIDEO_DAMAGE_ASSESSMENT;
+
 CREATE OR REPLACE SEMANTIC VIEW SV_VIDEO_ANALYSIS
     TABLES (
-        dashcam AS ANALYTICS.DT_DASHCAM_ANALYSIS
+        dashcam AS ANALYTICS.V_DASHCAM_ANALYSIS
+            PRIMARY KEY (CLAIM_ID)
             WITH SYNONYMS = ('ドラレコ分析', 'ドライブレコーダー分析', '事故映像分析')
             COMMENT = 'ドラレコ映像のAI分析結果',
-        video_damage AS ANALYTICS.DT_VIDEO_DAMAGE_ASSESSMENT
-            WITH SYNONYMS = ('動画損傷分析', '点検動画分析', '動画からの損傷判定')
-            COMMENT = '損傷点検動画のAI分析結果',
         dashcam_check AS ANALYTICS.DT_DASHCAM_CONSISTENCY
             WITH SYNONYMS = ('ドラレコ整合', '衝突箇所整合', '映像見積矛盾')
-            COMMENT = 'ドラレコ映像と見積明細の衝突箇所整合チェック',
-        claims AS RAW.CLM_CLAIMS
-            PRIMARY KEY (CLAIM_ID)
-            WITH SYNONYMS = ('案件')
-            COMMENT = '保険金請求案件'
+            COMMENT = 'ドラレコ映像と見積明細の衝突箇所整合チェック'
     )
     RELATIONSHIPS (
-        dashcam_to_claims       AS dashcam (CLAIM_ID) REFERENCES claims (CLAIM_ID),
-        video_damage_to_claims  AS video_damage (CLAIM_ID) REFERENCES claims (CLAIM_ID),
-        dashcam_check_to_claims AS dashcam_check (CLAIM_ID) REFERENCES claims (CLAIM_ID)
+        check_to_dashcam AS dashcam_check (CLAIM_ID) REFERENCES dashcam (CLAIM_ID)
     )
     DIMENSIONS (
-        dashcam.CLAIM_ID AS DASHCAM_CLAIM_ID
-            WITH SYNONYMS = ('ドラレコ案件番号')
-            COMMENT = 'ドラレコ分析の対象案件番号',
-        dashcam.FILE_NAME AS DASHCAM_FILE
-            WITH SYNONYMS = ('ドラレコファイル名')
-            COMMENT = 'ドラレコ映像のファイル名',
-        dashcam.ANALYSIS:accident_type::STRING AS ACCIDENT_TYPE_AI
+        dashcam.CLAIM_ID AS CLAIM_ID
+            WITH SYNONYMS = ('案件番号', 'ドラレコ案件番号')
+            COMMENT = '案件番号',
+        dashcam.ACCIDENT_TYPE_AI AS ACCIDENT_TYPE_AI
             WITH SYNONYMS = ('AI判定事故種類', '映像から判定した事故種類')
             COMMENT = 'ドラレコ映像からAIが判定した事故の種類',
-        dashcam.ANALYSIS:impact_location::STRING AS IMPACT_LOCATION_AI
+        dashcam.IMPACT_LOCATION_AI AS IMPACT_LOCATION_AI
             WITH SYNONYMS = ('AI判定衝突箇所', '映像から判定した衝突箇所')
             COMMENT = 'ドラレコ映像からAIが判定した衝突箇所',
-        dashcam.ANALYSIS:estimated_speed::STRING AS ESTIMATED_SPEED_AI
+        dashcam.ESTIMATED_SPEED_AI AS ESTIMATED_SPEED_AI
             WITH SYNONYMS = ('AI判定速度帯')
-            COMMENT = 'ドラレコ映像からAIが推定した速度帯',
-        dashcam.ANALYSIS:weather_road::STRING AS WEATHER_ROAD_AI
+            COMMENT = 'AIが推定した速度帯',
+        dashcam.WEATHER_ROAD_AI AS WEATHER_ROAD_AI
             WITH SYNONYMS = ('AI判定天候路面', '天候', '路面状況')
-            COMMENT = 'ドラレコ映像からAIが判定した天候・路面状況',
-        dashcam.ANALYSIS:fault_indication::STRING AS FAULT_INDICATION_AI
+            COMMENT = '天候・路面状況',
+        dashcam.FAULT_INDICATION_AI AS FAULT_INDICATION_AI
             WITH SYNONYMS = ('AI判定過失示唆', '過失割合')
-            COMMENT = 'ドラレコ映像からAIが示唆した過失割合',
-        video_damage.CLAIM_ID AS VIDEO_DAMAGE_CLAIM_ID
-            WITH SYNONYMS = ('点検動画案件番号')
-            COMMENT = '損傷点検動画の対象案件番号',
-        video_damage.ANALYSIS:overall_severity::STRING AS VIDEO_OVERALL_SEVERITY
-            WITH SYNONYMS = ('動画判定の全体損傷度')
-            COMMENT = '損傷点検動画からAIが判定した全体的な損傷の程度',
-        video_damage.ANALYSIS:summary::STRING AS VIDEO_DAMAGE_SUMMARY
-            WITH SYNONYMS = ('動画損傷要約', '動画判定の要約')
-            COMMENT = '損傷点検動画からの損傷状況要約',
-        dashcam_check.CLAIM_ID AS CHECK_CLAIM_ID
-            WITH SYNONYMS = ('整合チェック案件番号')
-            COMMENT = '整合チェックの対象案件番号',
-        dashcam_check."見積明細" AS CHECK_WORK_NAME
-            WITH SYNONYMS = ('チェック対象明細', '見積パーツ名')
-            COMMENT = '整合チェック対象の見積明細名',
-        dashcam_check.dashcam_consistency AS DASHCAM_CONSISTENCY
+            COMMENT = '過失割合の示唆',
+        dashcam_check.DASHCAM_CONSISTENCY AS DASHCAM_CONSISTENCY
             WITH SYNONYMS = ('ドラレコ整合結果', '衝突箇所チェック結果')
-            COMMENT = 'CONSISTENT / LOCATION_MISMATCH / NO_DASHCAM',
-        claims.INSURED_NAME AS INSURED_NAME
-            WITH SYNONYMS = ('被保険者', '契約者名')
-            COMMENT = '被保険者の氏名'
+            COMMENT = 'CONSISTENT / LOCATION_MISMATCH / NO_DASHCAM'
     )
-    COMMENT = '動画分析結果（ドラレコ・損傷点検・整合チェック）のセマンティックビュー';
+    COMMENT = '動画分析結果（ドラレコ分析・見積整合チェック）のセマンティックビュー';
 
 -- =========================================================
 -- Step 3: Semantic View の動作確認

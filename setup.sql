@@ -466,10 +466,10 @@ CREATE OR REPLACE STAGE VIDEO_STAGE
 
 -- 動画ファイルをGitリポジトリからコピー
 COPY FILES INTO @VIDEO_STAGE/dashcam/
-    FROM @INTEGRATIONS.insurance_claims_snowflake_cortex_handson/branches/feature/video-upgrade/data/videos/dashcam/;
+    FROM @INTEGRATIONS.insurance_claims_snowflake_cortex_handson/branches/"feature/video-upgrade"/data/videos/dashcam/;
 
 COPY FILES INTO @VIDEO_STAGE/inspection/
-    FROM @INTEGRATIONS.insurance_claims_snowflake_cortex_handson/branches/feature/video-upgrade/data/videos/inspection/;
+    FROM @INTEGRATIONS.insurance_claims_snowflake_cortex_handson/branches/"feature/video-upgrade"/data/videos/inspection/;
 
 ALTER STAGE VIDEO_STAGE REFRESH;
 
