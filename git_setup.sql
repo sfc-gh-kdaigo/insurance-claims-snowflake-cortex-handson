@@ -63,10 +63,12 @@ ALTER GIT REPOSITORY insurance_claims_snowflake_cortex_handson FETCH;
 -- ---------------------------------------------------------
 -- Step 0-5: 取得結果の確認
 -- ---------------------------------------------------------
--- data/pdf と data/images 配下にファイルが見えていれば成功
+-- data/pdf, data/images, data/videos 配下にファイルが見えていれば成功
 LS @insurance_claims_snowflake_cortex_handson/branches/main/data/pdf/;
 LS @insurance_claims_snowflake_cortex_handson/branches/main/data/images/claims/;
 LS @insurance_claims_snowflake_cortex_handson/branches/main/data/images/reference/;
+LS @insurance_claims_snowflake_cortex_handson/branches/main/data/videos/dashcam/;
+LS @insurance_claims_snowflake_cortex_handson/branches/main/data/videos/inspection/;
 
 -- =========================================================
 -- 次は setup.sql を実行してください
