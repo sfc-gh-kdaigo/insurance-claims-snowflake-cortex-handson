@@ -12,3 +12,6 @@ venv/
 
 # Snowflake CLI
 .snowflake/
+
+# Old video files (superseded by Canva AI regeneration)
+data/videos/.old/

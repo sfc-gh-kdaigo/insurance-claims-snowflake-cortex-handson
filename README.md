@@ -83,7 +83,7 @@ INSURANCE_CLAIMS_DB
 │   ├── CLM_IMAGES         事故画像メタ    10件
 │   ├── CLM_REPAIR_SHOPS   契約修理工場     5件
 │   ├── CLM_ESTIMATES_RAW  見積書PDFメタ    3件
-│   ├── CLM_VIDEOS         動画メタ        6件
+│   ├── CLM_VIDEOS         動画メタ        4件
 │   ├── CLAIM_IMAGES_STAGE 事故車・参考画像（ステージ）
 │   ├── VIDEO_STAGE        ドラレコ・点検動画（ステージ）
 │   └── DOCS_STAGE         約款・見積書PDF（ステージ）
